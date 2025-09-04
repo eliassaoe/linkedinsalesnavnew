@@ -1,0 +1,17 @@
+{
+    "name": "linkedin-sales-scraper",
+    "version": "1.0.0",
+    "description": "LinkedIn Sales Navigator scraper with Apify",
+    "main": "main.js",
+    "scripts": {
+        "start": "node main.js"
+    },
+    "dependencies": {
+        "apify": "^3.1.0"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "author": "Your Name",
+    "license": "MIT"
+}

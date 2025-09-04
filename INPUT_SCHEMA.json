@@ -9,12 +9,12 @@
             "description": "Your LinkedIn cookies",
             "editor": "json"
         },
-        "startUrl": {
-    "title": "Profile URL",
-    "type": "string",
-    "description": "LinkedIn profile URL to scrape",
-    "editor": "textfield",
-    "example": "https://www.linkedin.com/in/eliasse-hamour-08194821a/"
+        "profileUrl": {
+            "title": "Profile URL",
+            "type": "string",
+            "description": "LinkedIn profile URL to scrape",
+            "editor": "textfield",
+            "example": "https://www.linkedin.com/in/eliasse-hamour-08194821a/"
         },
         "maxPages": {
             "title": "Max Pages",
@@ -24,5 +24,5 @@
             "editor": "number"
         }
     },
-   "required": ["linkedinCookies", "profileUrl"]
+    "required": ["linkedinCookies", "profileUrl"]
 }

@@ -1,0 +1,52 @@
+{
+    "title": "LinkedIn Sales Navigator Scraper",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "linkedinCookies": {
+            "title": "LinkedIn Cookies",
+            "type": "array",
+            "description": "Your LinkedIn authentication cookies (li_at, JSESSIONID, etc.)",
+            "editor": "json",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "value": {"type": "string"},
+                    "domain": {"type": "string"}
+                },
+                "required": ["name", "value", "domain"]
+            }
+        },
+        "startUrl": {
+            "title": "Start URL",
+            "type": "string",
+            "description": "LinkedIn Sales Navigator search URL to start scraping",
+            "editor": "textfield",
+            "example": "https://www.linkedin.com/sales/search/people?keywords=developer"
+        },
+        "maxPages": {
+            "title": "Max Pages",
+            "type": "integer",
+            "description": "Maximum number of pages to scrape",
+            "default": 50,
+            "minimum": 1,
+            "maximum": 1000
+        },
+        "minDelay": {
+            "title": "Min Delay (ms)",
+            "type": "integer",
+            "description": "Minimum delay between actions",
+            "default": 3000,
+            "minimum": 1000
+        },
+        "maxDelay": {
+            "title": "Max Delay (ms)",
+            "type": "integer",
+            "description": "Maximum delay between actions",
+            "default": 11000,
+            "minimum": 1000
+        }
+    },
+    "required": ["linkedinCookies", "startUrl"]
+}

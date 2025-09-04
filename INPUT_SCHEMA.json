@@ -6,13 +6,13 @@
         "linkedinCookies": {
             "title": "LinkedIn Cookies",
             "type": "array",
-            "description": "Your LinkedIn cookies",
-            "editor": "json"
+            "description": "Your LinkedIn cookies"
         },
         "startUrl": {
             "title": "Start URL",
             "type": "string",
-            "description": "LinkedIn Sales Nav URL"
+            "description": "LinkedIn Sales Nav URL",
+            "editor": "textfield"
         },
         "maxPages": {
             "title": "Max Pages",

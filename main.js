@@ -22,21 +22,22 @@ Actor.main(async () => {
     console.log('✅ Starting LinkedIn profile scraping:', profileUrl);
     console.log('✅ Using', linkedinCookies.length, 'cookies');
 
-    const browser = await Actor.launchPlaywright({
-        headless: true,
-        useApifyProxy: true,
-        proxyConfiguration: await Actor.createProxyConfiguration({
-            groups: ['RESIDENTIAL']
-        }),
-        launchOptions: {
-            args: [
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-web-security'
-            ]
-        }
-    });
+    const proxyConfiguration = await Actor.createProxyConfiguration({
+    groups: ['RESIDENTIAL']
+});
+
+const browser = await Actor.newClient().launchPlaywright({
+    headless: true,
+    proxyConfiguration,
+    launchOptions: {
+        args: [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-web-security'
+        ]
+    }
+});
 
     const page = await browser.newPage();
 

@@ -3,24 +3,23 @@ const Apify = require('apify');
 Apify.main(async () => {
     const input = await Apify.getInput();
     const { 
-        linkedinCookies,   // OBLIGATOIRE - cookies user
-        startUrl,          // OBLIGATOIRE - URL de départ user
-        maxPages = 50,     
+        linkedinCookies,   
+        profileUrl,        // Ex: https://www.linkedin.com/in/eliasse-hamour-08194821a/
         minDelay = 3000,   
         maxDelay = 11000,
         maxRetries = 3
     } = input;
 
-    // Validation des inputs obligatoires
+    // Validation
     if (!linkedinCookies || !Array.isArray(linkedinCookies) || linkedinCookies.length === 0) {
-        throw new Error('❌ linkedinCookies is required! Please provide your LinkedIn cookies.');
+        throw new Error('❌ linkedinCookies is required!');
     }
 
-    if (!startUrl) {
-        throw new Error('❌ startUrl is required! Please provide the LinkedIn Sales Nav URL to start scraping.');
+    if (!profileUrl) {
+        throw new Error('❌ profileUrl is required!');
     }
 
-    console.log('✅ Starting with user-provided URL:', startUrl);
+    console.log('✅ Starting LinkedIn profile scraping:', profileUrl);
     console.log('✅ Using', linkedinCookies.length, 'cookies');
 
     const browser = await Apify.launchPlaywright({
@@ -49,7 +48,7 @@ Apify.main(async () => {
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
-    // Set user cookies
+    // Set cookies
     await page.context().addCookies(linkedinCookies);
     console.log('✅ Cookies applied');
 
@@ -66,122 +65,187 @@ Apify.main(async () => {
     
     const humanBehavior = async () => {
         await page.evaluate(() => {
-            window.scrollTo(0, Math.floor(Math.random() * 800));
+            window.scrollTo(0, Math.floor(Math.random() * 1000));
         });
-        await page.waitForTimeout(1000 + Math.random() * 2000);
+        await page.waitForTimeout(2000 + Math.random() * 3000);
         
         await page.mouse.move(
             Math.floor(Math.random() * 400), 
             Math.floor(Math.random() * 600)
         );
-        await page.waitForTimeout(500 + Math.random() * 1000);
+        await page.waitForTimeout(1000 + Math.random() * 2000);
     };
 
-    let pageCount = 0;
-
-    try {
-        // Navigation vers l'URL user
-        console.log('🚀 Navigating to user URL...');
-        await page.goto(startUrl, { waitUntil: 'networkidle', timeout: 30000 });
-        await page.waitForTimeout(randomDelay());
-
-        while (pageCount < maxPages) {
-            let retries = 0;
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+        try {
+            console.log(`🚀 Loading profile (attempt ${retries + 1})...`);
             
-            while (retries < maxRetries) {
+            // Random delay avant navigation
+            await page.waitForTimeout(randomDelay());
+            
+            await page.goto(profileUrl, { waitUntil: 'networkidle', timeout: 30000 });
+            
+            // Vérifier si détecté/bloqué
+            const isBlocked = await page.$('text=challenge') || 
+                             await page.$('text=blocked') ||
+                             await page.$('text=captcha') ||
+                             await page.$('.challenge-page');
+            
+            if (isBlocked) {
+                console.log('⚠️ Detection possible, waiting 2 minutes...');
+                await page.waitForTimeout(120000);
+                retries++;
+                continue;
+            }
+
+            // Comportement humain - scroll pour charger tout le profil
+            console.log('📖 Reading profile...');
+            await humanBehavior();
+            
+            // Scroll pour charger expériences/éducation
+            await page.evaluate(() => {
+                window.scrollTo(0, document.body.scrollHeight / 2);
+            });
+            await page.waitForTimeout(3000);
+            
+            await page.evaluate(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+            await page.waitForTimeout(3000);
+
+            // Extract profile data
+            const profileData = await page.evaluate(() => {
+                const data = {
+                    url: window.location.href,
+                    timestamp: new Date().toISOString()
+                };
+
                 try {
-                    console.log(`📄 Scraping page ${pageCount + 1}/${maxPages}`);
-                    
-                    // Vérifier détection
-                    const isBlocked = await page.$('text=challenge') || 
-                                     await page.$('text=blocked') ||
-                                     await page.$('text=captcha') ||
-                                     await page.$('[data-test-id="captcha"]');
-                    
-                    if (isBlocked) {
-                        console.log('⚠️ Detection possible, waiting 2 minutes...');
-                        await page.waitForTimeout(120000);
-                        retries++;
-                        continue;
-                    }
+                    // Nom complet
+                    const nameElement = document.querySelector('h1.text-heading-xlarge') ||
+                                       document.querySelector('[data-anonymize="person-name"]') ||
+                                       document.querySelector('.pv-text-details__left-panel h1');
+                    data.name = nameElement?.textContent?.trim();
 
-                    await humanBehavior();
+                    // Titre/poste actuel
+                    const titleElement = document.querySelector('.text-body-medium.break-words') ||
+                                        document.querySelector('.pv-text-details__left-panel .text-body-medium');
+                    data.title = titleElement?.textContent?.trim();
 
-                    // Extract data
-                    const pageData = await page.evaluate(() => {
-                        const results = [];
-                        
-                        const profileCards = document.querySelectorAll('[data-view-name="search-results-lead"]') || 
-                                           document.querySelectorAll('.artdeco-entity-lockup');
-                        
-                        profileCards.forEach(card => {
-                            try {
-                                const name = card.querySelector('span[aria-hidden="true"]')?.textContent?.trim();
-                                const title = card.querySelector('.artdeco-entity-lockup__subtitle')?.textContent?.trim();
-                                const company = card.querySelector('.artdeco-entity-lockup__caption')?.textContent?.trim();
-                                
-                                if (name) {
-                                    results.push({ name, title, company });
-                                }
-                            } catch (e) {
-                                console.log('Error extracting profile:', e);
+                    // Localisation
+                    const locationElement = document.querySelector('.text-body-small.inline.t-black--light.break-words') ||
+                                           document.querySelector('.pv-text-details__left-panel .text-body-small');
+                    data.location = locationElement?.textContent?.trim();
+
+                    // Nombre de connexions
+                    const connectionsElement = document.querySelector('.t-black--light .t-bold') ||
+                                              document.querySelector('[data-anonymize="member-connections"]');
+                    data.connections = connectionsElement?.textContent?.trim();
+
+                    // Photo de profil
+                    const photoElement = document.querySelector('.pv-top-card-profile-picture__image') ||
+                                        document.querySelector('img[data-anonymize="headshot-photo"]');
+                    data.profilePhoto = photoElement?.src;
+
+                    // Section À propos
+                    const aboutElement = document.querySelector('#about ~ .pv-shared-text-with-see-more .inline-show-more-text') ||
+                                        document.querySelector('.pv-about-section .pv-about__summary-text');
+                    data.about = aboutElement?.textContent?.trim();
+
+                    // Expériences
+                    data.experiences = [];
+                    const experienceItems = document.querySelectorAll('.pvs-list__item--line-separated .pvs-entity') ||
+                                           document.querySelectorAll('.pv-experience-section .pv-entity__summary-info');
+                    
+                    experienceItems.forEach(item => {
+                        try {
+                            const jobTitle = item.querySelector('.mr1.t-bold span[aria-hidden="true"]')?.textContent?.trim() ||
+                                           item.querySelector('.pv-entity__summary-info h3')?.textContent?.trim();
+                            
+                            const company = item.querySelector('.t-14.t-normal span[aria-hidden="true"]')?.textContent?.trim() ||
+                                          item.querySelector('.pv-entity__secondary-title')?.textContent?.trim();
+                            
+                            const duration = item.querySelector('.t-14.t-normal.t-black--light span[aria-hidden="true"]')?.textContent?.trim() ||
+                                           item.querySelector('.pv-entity__bullet-item')?.textContent?.trim();
+
+                            if (jobTitle) {
+                                data.experiences.push({ jobTitle, company, duration });
                             }
-                        });
-
-                        return {
-                            url: window.location.href,
-                            timestamp: new Date().toISOString(),
-                            results: results,
-                            totalFound: results.length
-                        };
+                        } catch (e) {
+                            console.log('Error parsing experience:', e);
+                        }
                     });
 
-                    if (pageData.results.length > 0) {
-                        await Apify.pushData(pageData);
-                        console.log(`✅ Extracted ${pageData.results.length} profiles`);
-                    }
+                    // Éducation
+                    data.education = [];
+                    const educationItems = document.querySelectorAll('.pvs-list__item--line-separated .pvs-entity') ||
+                                          document.querySelectorAll('.pv-education-section .pv-entity__summary-info');
+                    
+                    educationItems.forEach(item => {
+                        try {
+                            const school = item.querySelector('.mr1.t-bold span[aria-hidden="true"]')?.textContent?.trim() ||
+                                          item.querySelector('.pv-entity__school-name')?.textContent?.trim();
+                            
+                            const degree = item.querySelector('.t-14.t-normal span[aria-hidden="true"]')?.textContent?.trim() ||
+                                          item.querySelector('.pv-entity__degree-name')?.textContent?.trim();
+                            
+                            const years = item.querySelector('.t-14.t-normal.t-black--light span[aria-hidden="true"]')?.textContent?.trim() ||
+                                         item.querySelector('.pv-entity__dates')?.textContent?.trim();
 
-                    // Chercher next button
-                    const nextButton = await page.$('button[aria-label="Next"]') || 
-                                      await page.$('.artdeco-pagination__button--next:not([disabled])');
-                    
-                    if (!nextButton) {
-                        console.log('🏁 No more pages available');
-                        break;
-                    }
+                            if (school) {
+                                data.education.push({ school, degree, years });
+                            }
+                        } catch (e) {
+                            console.log('Error parsing education:', e);
+                        }
+                    });
 
-                    await page.waitForTimeout(randomDelay());
-                    await humanBehavior();
+                    // Compétences (si visibles)
+                    data.skills = [];
+                    const skillItems = document.querySelectorAll('.pvs-list__item .mr1.t-bold span[aria-hidden="true"]') ||
+                                      document.querySelectorAll('.pv-skill-category-entity__name span');
                     
-                    await nextButton.click();
-                    await page.waitForLoadState('networkidle');
-                    
-                    pageCount++;
-                    break;
-                    
+                    skillItems.forEach(skill => {
+                        const skillName = skill?.textContent?.trim();
+                        if (skillName && !data.skills.includes(skillName)) {
+                            data.skills.push(skillName);
+                        }
+                    });
+
                 } catch (error) {
-                    console.log(`❌ Error on page ${pageCount + 1}: ${error.message}`);
-                    retries++;
-                    
-                    if (retries >= maxRetries) {
-                        console.log('Max retries reached, stopping...');
-                        break;
-                    }
-                    
-                    await page.waitForTimeout(60000 + randomDelay());
+                    console.log('Error extracting profile data:', error);
+                    data.error = error.message;
                 }
+
+                return data;
+            });
+
+            // Save data
+            await Apify.pushData(profileData);
+            console.log('✅ Profile scraped successfully!');
+            console.log(`📊 Found: ${profileData.name} - ${profileData.title}`);
+            console.log(`📈 Experiences: ${profileData.experiences?.length || 0}`);
+            console.log(`🎓 Education: ${profileData.education?.length || 0}`);
+            console.log(`💪 Skills: ${profileData.skills?.length || 0}`);
+            
+            break; // Success, sortir de la boucle
+            
+        } catch (error) {
+            console.log(`❌ Error loading profile: ${error.message}`);
+            retries++;
+            
+            if (retries >= maxRetries) {
+                console.log('Max retries reached, giving up...');
+                throw error;
             }
             
-            if (retries >= maxRetries) break;
-            await page.waitForTimeout(randomDelay());
+            // Pause longue en cas d'erreur
+            await page.waitForTimeout(60000 + randomDelay());
         }
-
-    } catch (error) {
-        console.log('Fatal error:', error);
-        throw error;
-    } finally {
-        await browser.close();
     }
 
-    console.log(`🎉 Scraping completed! Processed ${pageCount} pages`);
+    await browser.close();
+    console.log('🎉 Profile scraping completed!');
 });

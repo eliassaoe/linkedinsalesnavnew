@@ -223,7 +223,7 @@ Apify.main(async () => {
             });
 
             // Save data
-            await Apify.pushData(profileData);
+            await Actor.pushData(profileData);
             console.log('✅ Profile scraped successfully!');
             console.log(`📊 Found: ${profileData.name} - ${profileData.title}`);
             console.log(`📈 Experiences: ${profileData.experiences?.length || 0}`);

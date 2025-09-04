@@ -1,7 +1,7 @@
-const Apify = require('apify');
+const { Actor } = require('apify');
 
-Apify.main(async () => {
-    const input = await Apify.getInput();
+Actor.main(async () => {
+    const input = await Actor.getInput();
     const { 
         linkedinCookies,   
         profileUrl,        // Ex: https://www.linkedin.com/in/eliasse-hamour-08194821a/
@@ -22,10 +22,10 @@ Apify.main(async () => {
     console.log('✅ Starting LinkedIn profile scraping:', profileUrl);
     console.log('✅ Using', linkedinCookies.length, 'cookies');
 
-    const browser = await Apify.launchPlaywright({
+    const browser = await Actor.launchPlaywright({
         headless: true,
         useApifyProxy: true,
-        proxyConfiguration: await Apify.createProxyConfiguration({
+        proxyConfiguration: await Actor.createProxyConfiguration({
             groups: ['RESIDENTIAL'],
             countryCode: 'US',
             sessionRotationCount: 15

@@ -1,10 +1,11 @@
 const { Actor } = require('apify');
+const puppeteer = require('puppeteer');
 
 Actor.main(async () => {
     const input = await Actor.getInput();
     const { 
         linkedinCookies,   
-        profileUrl,        // Ex: https://www.linkedin.com/in/eliasse-hamour-08194821a/
+        startUrl: profileUrl,        
         minDelay = 3000,   
         maxDelay = 11000,
         maxRetries = 3
@@ -22,37 +23,31 @@ Actor.main(async () => {
     console.log('✅ Starting LinkedIn profile scraping:', profileUrl);
     console.log('✅ Using', linkedinCookies.length, 'cookies');
 
-    const proxyConfiguration = await Actor.createProxyConfiguration({
-    groups: ['RESIDENTIAL']
-});
-
-const browser = await Actor.newClient().launchPlaywright({
-    headless: true,
-    proxyConfiguration,
-    launchOptions: {
+    const browser = await puppeteer.launch({
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
             '--disable-blink-features=AutomationControlled',
             '--disable-web-security'
         ]
-    }
-});
+    });
 
     const page = await browser.newPage();
 
     // Stealth config
-    await page.addInitScript(() => {
+    await page.evaluateOnNewDocument(() => {
         delete navigator.__proto__.webdriver;
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
     // Set cookies
-    await page.context().addCookies(linkedinCookies);
+    await page.setCookie(...linkedinCookies);
     console.log('✅ Cookies applied');
 
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
     await page.setExtraHTTPHeaders({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -84,7 +79,7 @@ const browser = await Actor.newClient().launchPlaywright({
             // Random delay avant navigation
             await page.waitForTimeout(randomDelay());
             
-            await page.goto(profileUrl, { waitUntil: 'networkidle', timeout: 30000 });
+            await page.goto(profileUrl, { waitUntil: 'networkidle2', timeout: 30000 });
             
             // Vérifier si détecté/bloqué
             const isBlocked = await page.$('text=challenge') || 

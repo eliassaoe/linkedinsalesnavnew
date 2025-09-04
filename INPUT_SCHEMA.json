@@ -1,5 +1,5 @@
 {
-    "title": "LinkedIn Sales Navigator Scraper",
+    "title": "LinkedIn Profile Scraper",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
@@ -10,10 +10,11 @@
             "editor": "json"
         },
         "startUrl": {
-            "title": "Start URL", 
-            "type": "string",
-            "description": "LinkedIn Sales Nav URL",
-            "editor": "textfield"
+    "title": "Profile URL",
+    "type": "string",
+    "description": "LinkedIn profile URL to scrape",
+    "editor": "textfield",
+    "example": "https://www.linkedin.com/in/eliasse-hamour-08194821a/"
         },
         "maxPages": {
             "title": "Max Pages",
@@ -23,5 +24,5 @@
             "editor": "number"
         }
     },
-    "required": ["linkedinCookies", "startUrl"]
+   "required": ["linkedinCookies", "profileUrl"]
 }

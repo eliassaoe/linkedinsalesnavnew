@@ -11,9 +11,18 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
-                    "value": {"type": "string"},
-                    "domain": {"type": "string"}
+                    "name": {
+                        "type": "string",
+                        "title": "Cookie Name"
+                    },
+                    "value": {
+                        "type": "string",
+                        "title": "Cookie Value"
+                    },
+                    "domain": {
+                        "type": "string",
+                        "title": "Cookie Domain"
+                    }
                 },
                 "required": ["name", "value", "domain"]
             }

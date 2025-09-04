@@ -26,9 +26,7 @@ Actor.main(async () => {
         headless: true,
         useApifyProxy: true,
         proxyConfiguration: await Actor.createProxyConfiguration({
-            groups: ['RESIDENTIAL'],
-            countryCode: 'US',
-            sessionRotationCount: 15
+            groups: ['RESIDENTIAL']
         }),
         launchOptions: {
             args: [

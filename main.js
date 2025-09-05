@@ -27,6 +27,20 @@ Actor.main(async () => {
     const cookiesArray = Array.isArray(linkedinCookies[0]) ? linkedinCookies[0] : linkedinCookies;
     console.log('✅ Processed cookies array:', cookiesArray.length);
 
+    // Clean cookies for Playwright
+    const cleanCookies = cookiesArray.map(cookie => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path || '/',
+        expires: cookie.expirationDate ? Math.floor(cookie.expirationDate) : undefined,
+        httpOnly: cookie.httpOnly || false,
+        secure: cookie.secure || false,
+        sameSite: cookie.sameSite === 'no_restriction' ? 'None' : 
+                 cookie.sameSite === 'lax' ? 'Lax' : 
+                 cookie.sameSite === 'strict' ? 'Strict' : 'Lax'
+    }));
+
     const browser = await chromium.launch({
         headless: true,
         args: [
@@ -48,8 +62,8 @@ Actor.main(async () => {
         }
     });
 
-    // Set cookies - utilise cookiesArray
-    await context.addCookies(cookiesArray);
+    // Set cleaned cookies
+    await context.addCookies(cleanCookies);
     console.log('✅ Cookies applied');
 
     const page = await context.newPage();

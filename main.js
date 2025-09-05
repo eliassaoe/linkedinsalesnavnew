@@ -122,82 +122,177 @@ Actor.main(async () => {
             console.log('📖 Reading profile...');
             await humanBehavior();
             
+            // Wait for dynamic content to load
+            await page.waitForTimeout(8000);
+            
             // Scroll pour charger expériences/éducation
+            await page.evaluate(() => {
+                window.scrollTo(0, document.body.scrollHeight / 3);
+            });
+            await page.waitForTimeout(4000);
+            
             await page.evaluate(() => {
                 window.scrollTo(0, document.body.scrollHeight / 2);
             });
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(4000);
             
             await page.evaluate(() => {
                 window.scrollTo(0, document.body.scrollHeight);
             });
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(5000);
 
             console.log('🔍 Extracting profile data...');
 
-            // Extract profile data
+            // Take screenshot for debugging
+            await page.screenshot({ path: 'profile_page.png', fullPage: true });
+            console.log('📸 Screenshot saved for debugging');
+
+            // Extract profile data with updated selectors
             const profileData = await page.evaluate(() => {
                 const data = {
                     url: window.location.href,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    pageTitle: document.title
                 };
 
                 try {
-                    // Nom complet
-                    const nameElement = document.querySelector('h1.text-heading-xlarge') ||
-                                       document.querySelector('[data-anonymize="person-name"]') ||
-                                       document.querySelector('.pv-text-details__left-panel h1') ||
-                                       document.querySelector('h1');
+                    // Log available elements for debugging
+                    console.log('Page title:', document.title);
+                    console.log('H1 elements:', document.querySelectorAll('h1').length);
+                    console.log('All headings:', Array.from(document.querySelectorAll('h1, h2, h3')).map(h => h.textContent?.trim()).slice(0, 5));
+
+                    // Nom complet - updated selectors
+                    const nameSelectors = [
+                        'h1.text-heading-xlarge',
+                        'h1.break-words',
+                        '.pv-text-details__left-panel h1',
+                        '.ph5 h1',
+                        'h1',
+                        '[data-anonymize="person-name"]'
+                    ];
+                    
+                    let nameElement = null;
+                    for (const selector of nameSelectors) {
+                        nameElement = document.querySelector(selector);
+                        if (nameElement && nameElement.textContent?.trim()) break;
+                    }
                     data.name = nameElement?.textContent?.trim();
 
-                    // Titre/poste actuel
-                    const titleElement = document.querySelector('.text-body-medium.break-words') ||
-                                        document.querySelector('.pv-text-details__left-panel .text-body-medium') ||
-                                        document.querySelector('[data-generated-suggestion-target]');
+                    // Titre/poste actuel - updated selectors
+                    const titleSelectors = [
+                        '.text-body-medium.break-words',
+                        '.pv-text-details__left-panel .text-body-medium',
+                        '.ph5 .text-body-medium',
+                        '.pv-top-card .text-body-medium',
+                        '[data-generated-suggestion-target]'
+                    ];
+                    
+                    let titleElement = null;
+                    for (const selector of titleSelectors) {
+                        titleElement = document.querySelector(selector);
+                        if (titleElement && titleElement.textContent?.trim() && 
+                            !titleElement.textContent.includes('connection') && 
+                            !titleElement.textContent.includes('follower')) break;
+                    }
                     data.title = titleElement?.textContent?.trim();
 
-                    // Localisation
-                    const locationElement = document.querySelector('.text-body-small.inline.t-black--light.break-words') ||
-                                           document.querySelector('.pv-text-details__left-panel .text-body-small') ||
-                                           document.querySelector('.pb2.pv-text-details__left-panel .text-body-small');
+                    // Localisation - updated selectors
+                    const locationSelectors = [
+                        '.text-body-small.inline.t-black--light.break-words',
+                        '.pv-text-details__left-panel .text-body-small',
+                        '.ph5 .text-body-small',
+                        '.pv-top-card .text-body-small'
+                    ];
+                    
+                    let locationElement = null;
+                    for (const selector of locationSelectors) {
+                        locationElement = document.querySelector(selector);
+                        if (locationElement && locationElement.textContent?.trim() && 
+                            !locationElement.textContent.includes('connection') && 
+                            !locationElement.textContent.includes('follower')) break;
+                    }
                     data.location = locationElement?.textContent?.trim();
 
-                    // Nombre de connexions
-                    const connectionsElement = document.querySelector('.t-black--light .t-bold') ||
-                                              document.querySelector('[data-anonymize="member-connections"]') ||
-                                              document.querySelector('.pv-top-card--list-bullet .pv-top-card--list-bullet');
-                    data.connections = connectionsElement?.textContent?.trim();
+                    // Connexions et followers
+                    const connectionSelectors = [
+                        '.pv-top-card--list-bullet',
+                        '.t-black--light .t-bold',
+                        '[data-anonymize="member-connections"]'
+                    ];
+                    
+                    connectionSelectors.forEach(selector => {
+                        const elements = document.querySelectorAll(selector);
+                        elements.forEach(el => {
+                            const text = el.textContent?.trim();
+                            if (text && text.includes('connection')) {
+                                data.connections = text;
+                            }
+                            if (text && text.includes('follower')) {
+                                data.followers = text;
+                            }
+                        });
+                    });
 
                     // Photo de profil
-                    const photoElement = document.querySelector('.pv-top-card-profile-picture__image') ||
-                                        document.querySelector('img[data-anonymize="headshot-photo"]') ||
-                                        document.querySelector('.profile-photo-edit__preview img');
+                    const photoSelectors = [
+                        '.pv-top-card-profile-picture__image',
+                        'img[data-anonymize="headshot-photo"]',
+                        '.profile-photo-edit__preview img',
+                        '.pv-top-card__photo img'
+                    ];
+                    
+                    let photoElement = null;
+                    for (const selector of photoSelectors) {
+                        photoElement = document.querySelector(selector);
+                        if (photoElement && photoElement.src) break;
+                    }
                     data.profilePhoto = photoElement?.src;
 
                     // Section À propos
-                    const aboutElement = document.querySelector('#about ~ .pv-shared-text-with-see-more .inline-show-more-text') ||
-                                        document.querySelector('.pv-about-section .pv-about__summary-text') ||
-                                        document.querySelector('[data-generated-suggestion-target] + div');
+                    const aboutSelectors = [
+                        '#about + * .inline-show-more-text',
+                        '.pv-about-section .pv-about__summary-text',
+                        '[data-field="summary"] .inline-show-more-text',
+                        '.pv-shared-text-with-see-more .inline-show-more-text'
+                    ];
+                    
+                    let aboutElement = null;
+                    for (const selector of aboutSelectors) {
+                        aboutElement = document.querySelector(selector);
+                        if (aboutElement && aboutElement.textContent?.trim()) break;
+                    }
                     data.about = aboutElement?.textContent?.trim();
 
-                    // Expériences
+                    // Expériences - updated selectors
                     data.experiences = [];
-                    const experienceItems = document.querySelectorAll('.pvs-list__item--line-separated .pvs-entity') ||
-                                           document.querySelectorAll('.pv-experience-section .pv-entity__summary-info') ||
-                                           document.querySelectorAll('[data-field="experience"] .pvs-entity');
+                    const experienceSelectors = [
+                        '#experience + * .pvs-entity',
+                        '[data-field="experience"] .pvs-entity',
+                        '.pv-experience-section .pv-entity'
+                    ];
+                    
+                    let experienceItems = [];
+                    for (const selector of experienceSelectors) {
+                        experienceItems = document.querySelectorAll(selector);
+                        if (experienceItems.length > 0) break;
+                    }
                     
                     experienceItems.forEach((item, index) => {
-                        if (index < 10) { // Limite à 10 expériences
+                        if (index < 10) {
                             try {
-                                const jobTitle = item.querySelector('.mr1.t-bold span[aria-hidden="true"]')?.textContent?.trim() ||
-                                               item.querySelector('.pv-entity__summary-info h3')?.textContent?.trim() ||
-                                               item.querySelector('.pvs-entity__path-node')?.textContent?.trim();
-                                
-                                const company = item.querySelector('.t-14.t-normal span[aria-hidden="true"]')?.textContent?.trim() ||
-                                              item.querySelector('.pv-entity__secondary-title')?.textContent?.trim();
-                                
-                                const duration = item.querySelector('.t-14.t-normal.t-black--light span[aria-hidden="true"]')?.textContent?.trim() ||
-                                               item.querySelector('.pv-entity__bullet-item')?.textContent?.trim();
+                                const titleEl = item.querySelector('.mr1.t-bold span[aria-hidden="true"]') ||
+                                              item.querySelector('.pvs-entity__path-node') ||
+                                              item.querySelector('h3');
+                                              
+                                const companyEl = item.querySelector('.t-14.t-normal span[aria-hidden="true"]') ||
+                                                item.querySelector('.pvs-entity__secondary-title');
+                                                
+                                const durationEl = item.querySelector('.t-14.t-normal.t-black--light span[aria-hidden="true"]') ||
+                                                 item.querySelector('.pvs-entity__caption-wrapper');
+
+                                const jobTitle = titleEl?.textContent?.trim();
+                                const company = companyEl?.textContent?.trim();
+                                const duration = durationEl?.textContent?.trim();
 
                                 if (jobTitle) {
                                     data.experiences.push({ jobTitle, company, duration });
@@ -208,45 +303,14 @@ Actor.main(async () => {
                         }
                     });
 
-                    // Éducation
-                    data.education = [];
-                    const educationItems = document.querySelectorAll('[data-field="education"] .pvs-entity') ||
-                                          document.querySelectorAll('.pv-education-section .pv-entity__summary-info');
-                    
-                    educationItems.forEach((item, index) => {
-                        if (index < 5) { // Limite à 5 formations
-                            try {
-                                const school = item.querySelector('.mr1.t-bold span[aria-hidden="true"]')?.textContent?.trim() ||
-                                              item.querySelector('.pv-entity__school-name')?.textContent?.trim();
-                                
-                                const degree = item.querySelector('.t-14.t-normal span[aria-hidden="true"]')?.textContent?.trim() ||
-                                              item.querySelector('.pv-entity__degree-name')?.textContent?.trim();
-                                
-                                const years = item.querySelector('.t-14.t-normal.t-black--light span[aria-hidden="true"]')?.textContent?.trim() ||
-                                             item.querySelector('.pv-entity__dates')?.textContent?.trim();
-
-                                if (school) {
-                                    data.education.push({ school, degree, years });
-                                }
-                            } catch (e) {
-                                console.log('Error parsing education:', e);
-                            }
-                        }
-                    });
-
-                    // Compétences (si visibles)
-                    data.skills = [];
-                    const skillItems = document.querySelectorAll('[data-field="skill"] .mr1.t-bold span[aria-hidden="true"]') ||
-                                      document.querySelectorAll('.pv-skill-category-entity__name span');
-                    
-                    skillItems.forEach((skill, index) => {
-                        if (index < 20) { // Limite à 20 compétences
-                            const skillName = skill?.textContent?.trim();
-                            if (skillName && !data.skills.includes(skillName)) {
-                                data.skills.push(skillName);
-                            }
-                        }
-                    });
+                    // Debug info
+                    data.debug = {
+                        totalH1s: document.querySelectorAll('h1').length,
+                        totalSections: document.querySelectorAll('section').length,
+                        hasExperienceSection: !!document.querySelector('#experience'),
+                        hasAboutSection: !!document.querySelector('#about'),
+                        bodyClasses: document.body.className
+                    };
 
                 } catch (error) {
                     console.log('Error extracting profile data:', error);

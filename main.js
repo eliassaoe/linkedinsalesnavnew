@@ -5,7 +5,7 @@ Actor.main(async () => {
     const input = await Actor.getInput();
     const { 
         linkedinCookies,   
-        startUrl: profileUrl,        
+        profileUrl,        // Corrigé : juste profileUrl au lieu de profileUrl: profileUrl
         minDelay = 3000,   
         maxDelay = 11000,
         maxRetries = 3
@@ -22,6 +22,10 @@ Actor.main(async () => {
 
     console.log('✅ Starting LinkedIn profile scraping:', profileUrl);
     console.log('✅ Using', linkedinCookies.length, 'cookies');
+
+    // Fix pour les cookies - ils peuvent être dans un array imbriqué
+    const cookiesArray = Array.isArray(linkedinCookies[0]) ? linkedinCookies[0] : linkedinCookies;
+    console.log('✅ Processed cookies array:', cookiesArray.length);
 
     const browser = await chromium.launch({
         headless: true,
@@ -44,8 +48,8 @@ Actor.main(async () => {
         }
     });
 
-    // Set cookies
-    await context.addCookies(linkedinCookies);
+    // Set cookies - utilise cookiesArray
+    await context.addCookies(cookiesArray);
     console.log('✅ Cookies applied');
 
     const page = await context.newPage();
@@ -84,17 +88,20 @@ Actor.main(async () => {
             await page.goto(profileUrl, { waitUntil: 'networkidle', timeout: 60000 });
             console.log('✅ Page loaded');
             
-            // Vérifier si détecté/bloqué
-            const isBlocked = await page.locator('text=challenge').first().isVisible().catch(() => false) || 
-                             await page.locator('text=blocked').first().isVisible().catch(() => false) ||
-                             await page.locator('text=captcha').first().isVisible().catch(() => false) ||
-                             await page.locator('.challenge-page').first().isVisible().catch(() => false);
-            
-            if (isBlocked) {
-                console.log('⚠️ Detection possible, waiting 2 minutes...');
-                await page.waitForTimeout(120000);
-                retries++;
-                continue;
+            // Vérifier si détecté/bloqué - simplifié pour éviter les erreurs
+            try {
+                const challengeExists = await page.waitForSelector('text=challenge', { timeout: 1000 }).then(() => true).catch(() => false);
+                const blockedExists = await page.waitForSelector('text=blocked', { timeout: 1000 }).then(() => true).catch(() => false);
+                const captchaExists = await page.waitForSelector('text=captcha', { timeout: 1000 }).then(() => true).catch(() => false);
+                
+                if (challengeExists || blockedExists || captchaExists) {
+                    console.log('⚠️ Detection possible, waiting 2 minutes...');
+                    await page.waitForTimeout(120000);
+                    retries++;
+                    continue;
+                }
+            } catch (error) {
+                console.log('Detection check failed, continuing...');
             }
 
             // Comportement humain - scroll pour charger tout le profil
